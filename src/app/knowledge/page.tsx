@@ -51,10 +51,15 @@ export default async function KnowledgePage() {
                         {doc.title}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(doc.created_at).toLocaleDateString("ja-JP")}
-                        {"　"}
-                        {doc.content.slice(0, 30)}...
+                        {doc.source_date
+                          ? `対象: ${doc.source_date}`
+                          : new Date(doc.created_at).toLocaleDateString("ja-JP")}
                       </p>
+                      {doc.summary && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                          {doc.summary}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
