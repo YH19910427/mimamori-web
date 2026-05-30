@@ -29,12 +29,24 @@ export interface DailyRecord {
   created_at: string;
 }
 
+export interface DocumentKeyFacts {
+  events?: { date: string; name: string }[];
+  items?: string[];
+  notes?: string[];
+}
+
 export interface KnowledgeDocument {
   id: string;
   title: string;
   category: "nursery" | "medical" | "preference" | "other";
   content: string;
   created_at: string;
+  summary: string | null;
+  source_type: "image" | "pdf" | "text" | null;
+  original_file_path: string | null;
+  source_date: string | null;
+  tags: string[] | null;
+  key_facts: DocumentKeyFacts | null;
 }
 
 export interface Conversation {
