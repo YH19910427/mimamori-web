@@ -1,5 +1,39 @@
-import { supabase, ChildProfile, DailyRecord, Conversation } from "@/lib/supabase";
+import {
+  supabase,
+  ChildProfile,
+  DailyRecord,
+  Conversation,
+  KnowledgeDocument,
+} from "@/lib/supabase";
 import Link from "next/link";
+
+type UpcomingEvent = { date: string; name: string; source: string };
+
+function collectUpcomingEvents(
+  documents: KnowledgeDocument[],
+  today: string,
+  limit = 5
+): UpcomingEvent[] {
+  const events: UpcomingEvent[] = [];
+  for (const doc of documents) {
+    for (const ev of doc.key_facts?.events ?? []) {
+      if (ev?.date && /^\d{4}-\d{2}-\d{2}$/.test(ev.date) && ev.date >= today) {
+        events.push({ date: ev.date, name: ev.name, source: doc.title });
+      }
+    }
+  }
+  events.sort((a, b) => a.date.localeCompare(b.date));
+  return events.slice(0, limit);
+}
+
+function formatEventDate(date: string): string {
+  const d = new Date(date + "T00:00:00");
+  return d.toLocaleDateString("ja-JP", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +67,7 @@ export default async function Dashboard() {
     weekday: "short",
   });
 
-  const [profileRes, recordsRes, convsRes] = await Promise.all([
+  const [profileRes, recordsRes, convsRes, docsRes] = await Promise.all([
     supabase.from("child_profile").select("*").limit(1),
     supabase
       .from("daily_records")
@@ -45,11 +79,14 @@ export default async function Dashboard() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase.from("documents").select("title, key_facts"),
   ]);
 
   const profile = profileRes.data?.[0] as ChildProfile | undefined;
   const records = (recordsRes.data ?? []) as DailyRecord[];
   const conversations = (convsRes.data ?? []) as Conversation[];
+  const documents = (docsRes.data ?? []) as KnowledgeDocument[];
+  const upcomingEvents = collectUpcomingEvents(documents, today);
 
   return (
     <div className="p-4 space-y-4">
@@ -77,6 +114,31 @@ export default async function Dashboard() {
           <span className="text-gray-400 text-lg">›</span>
         </div>
       </Link>
+
+      {/* 近づく予定 */}
+      {upcomingEvents.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="font-semibold text-gray-800">📅 近づく予定</h2>
+            <Link href="/knowledge" className="text-xs text-green-600 font-medium">
+              資料 ›
+            </Link>
+          </div>
+          <div className="space-y-2.5">
+            {upcomingEvents.map((ev, i) => (
+              <div key={i} className="flex gap-3 items-start text-sm">
+                <span className="shrink-0 w-24 text-green-700 font-medium">
+                  {formatEventDate(ev.date)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-800">{ev.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{ev.source}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 基本情報カード */}
       {profile && (
