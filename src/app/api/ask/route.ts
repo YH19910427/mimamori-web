@@ -12,9 +12,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ answer });
   } catch (error) {
     console.error("ask error:", error);
-    return NextResponse.json(
-      { error: "AIの応答に失敗しました", detail: String(error) },
-      { status: 500 }
-    );
+    const msg = String(error).includes("429")
+      ? "AIの利用上限に達しました。少し時間をおいてからお試しください。"
+      : "AIの応答に失敗しました";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,8 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { generateText } from "@/lib/gemini";
 
 const EXTRACT_PROMPT = `この資料（保育園のおたより・献立、医療・健康の書類、写真など。スキャン画像の場合あり）を読み取り、以下のJSONだけを出力してください。説明やコードフェンスは不要です。
 
@@ -62,11 +60,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Geminiで構造化抽出（1回リトライ）
-    const model = genai.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" },
-    });
+    // 2. Geminiで構造化抽出（モデルフォールバック＋1回リトライ）
     const parts = [
       { inlineData: { data: bytes.toString("base64"), mimeType } },
       { text: EXTRACT_PROMPT },
@@ -75,8 +69,11 @@ export async function POST(request: NextRequest) {
     let parsed: Record<string, unknown> | null = null;
     for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
       try {
-        const result = await model.generateContent(parts);
-        parsed = JSON.parse(result.response.text());
+        const text = await generateText({
+          parts,
+          generationConfig: { responseMimeType: "application/json" },
+        });
+        parsed = JSON.parse(text);
       } catch {
         parsed = null;
       }

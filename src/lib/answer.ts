@@ -1,8 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildContext } from "@/lib/context-builder";
 import { supabase } from "@/lib/supabase";
-
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { generateText } from "@/lib/gemini";
 
 const SYSTEM_PROMPT = `あなたはMimamori（見守り）です。この家族の子供専属AIアシスタントです。
 ルール：
@@ -35,13 +33,10 @@ export async function answerQuestion(
   let prompt = `## 子供の情報\n${context}\n\n## 質問\n${question}`;
   if (isEmergency) prompt = EMERGENCY_PREFIX + prompt;
 
-  const model = genai.getGenerativeModel({
-    model: "gemini-2.5-flash",
+  const answer = await generateText({
+    parts: prompt,
     systemInstruction: SYSTEM_PROMPT,
   });
-
-  const result = await model.generateContent(prompt);
-  const answer = result.response.text();
 
   await supabase.from("conversations").insert({
     user_message: source === "voice" ? `🎤 ${question}` : question,
