@@ -12,6 +12,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ answer });
   } catch (error) {
     console.error("ask error:", error);
-    return NextResponse.json({ error: "AIの応答に失敗しました" }, { status: 500 });
+    return NextResponse.json(
+      { error: "AIの応答に失敗しました", detail: String(error) },
+      { status: 500 }
+    );
   }
 }
