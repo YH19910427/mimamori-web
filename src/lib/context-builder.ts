@@ -7,7 +7,11 @@ export async function buildContext(): Promise<string> {
 
   const [profileRes, docsRes, recordsRes] = await Promise.all([
     supabase.from("child_profile").select("*").limit(1),
-    supabase.from("documents").select("*").order("created_at", { ascending: true }),
+    supabase
+      .from("documents")
+      .select("*")
+      .order("source_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false }),
     supabase
       .from("daily_records")
       .select("*")
@@ -43,7 +47,11 @@ export async function buildContext(): Promise<string> {
   if (documents.length > 0) {
     const docParts = ["## 登録ドキュメント"];
     for (const doc of documents) {
-      docParts.push(`### [${doc.category}] ${doc.title}\n${doc.content}`);
+      const dateLabel = doc.source_date ? `（対象: ${doc.source_date}）` : "";
+      const summaryLine = doc.summary ? `要約: ${doc.summary}\n` : "";
+      docParts.push(
+        `### [${doc.category}] ${doc.title}${dateLabel}\n${summaryLine}${doc.content}`
+      );
     }
     parts.push(docParts.join("\n\n"));
   }
