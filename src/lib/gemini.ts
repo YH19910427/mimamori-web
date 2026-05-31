@@ -36,7 +36,8 @@ function shouldFallback(err: unknown): boolean {
     s.includes("404") ||
     s.includes("not found") ||
     s.includes("503") ||
-    s.includes("overloaded")
+    s.includes("overloaded") ||
+    s.includes("empty stream")
   );
 }
 
@@ -65,6 +66,41 @@ export async function generateText(opts: GenerateOptions): Promise<string> {
       lastErr = e;
       if (!shouldFallback(e)) throw e;
       console.warn(`gemini model ${name} failed, trying next:`, String(e));
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * モデルのフォールバックを伴ってテキストを「逐次」生成する。
+ * 最初のチャンク取得前の失敗のみ次モデルへフォールバックする。
+ */
+export async function* generateTextStream(
+  opts: GenerateOptions
+): AsyncGenerator<string> {
+  let lastErr: unknown;
+  for (const name of modelList()) {
+    try {
+      const model = genai.getGenerativeModel({
+        model: name,
+        systemInstruction: opts.systemInstruction,
+        generationConfig: opts.generationConfig,
+      });
+      const result = await model.generateContentStream(opts.parts);
+      let started = false;
+      for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (text) {
+          started = true;
+          yield text;
+        }
+      }
+      if (started) return;
+      throw new Error("empty stream");
+    } catch (e) {
+      lastErr = e;
+      if (!shouldFallback(e)) throw e;
+      console.warn(`gemini stream model ${name} failed, trying next:`, String(e));
     }
   }
   throw lastErr;

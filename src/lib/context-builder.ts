@@ -1,7 +1,8 @@
 import { supabase, ChildProfile, DailyRecord, KnowledgeDocument } from "./supabase";
+import { selectDocuments, type DocLike } from "./relevance";
 
-export async function buildContext(): Promise<string> {
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+export async function buildContext(question: string): Promise<string> {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split("T")[0];
 
@@ -16,7 +17,8 @@ export async function buildContext(): Promise<string> {
       .from("daily_records")
       .select("*")
       .gte("date", since)
-      .order("date", { ascending: false }),
+      .order("date", { ascending: false })
+      .limit(30),
   ]);
 
   const profile = profileRes.data?.[0] as ChildProfile | undefined;
@@ -45,19 +47,32 @@ export async function buildContext(): Promise<string> {
   }
 
   if (documents.length > 0) {
+    const { full, brief } = selectDocuments(
+      question,
+      documents as unknown as DocLike[]
+    );
     const docParts = ["## 登録ドキュメント"];
-    for (const doc of documents) {
+    for (const doc of full) {
       const dateLabel = doc.source_date ? `（対象: ${doc.source_date}）` : "";
       const summaryLine = doc.summary ? `要約: ${doc.summary}\n` : "";
       docParts.push(
         `### [${doc.category}] ${doc.title}${dateLabel}\n${summaryLine}${doc.content}`
       );
     }
+    if (brief.length > 0) {
+      docParts.push("### その他（要約のみ）");
+      for (const doc of brief) {
+        const facts = doc.key_facts ? ` 要点:${JSON.stringify(doc.key_facts)}` : "";
+        docParts.push(
+          `- [${doc.category}] ${doc.title}（${doc.source_date ?? ""}）: ${doc.summary ?? ""}${facts}`
+        );
+      }
+    }
     parts.push(docParts.join("\n\n"));
   }
 
   if (records.length > 0) {
-    const lines = ["## 直近30日の記録"];
+    const lines = ["## 直近の記録"];
     for (const r of records) {
       const note = r.notes ? ` (${r.notes})` : "";
       lines.push(`- ${r.date} [${r.type}] ${r.value}${note}`);
