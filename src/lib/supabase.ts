@@ -47,6 +47,7 @@ export interface KnowledgeDocument {
   source_date: string | null;
   tags: string[] | null;
   key_facts: DocumentKeyFacts | null;
+  embedding?: number[] | null;
 }
 
 export interface Conversation {

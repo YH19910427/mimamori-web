@@ -2,7 +2,7 @@ import { buildContext } from "@/lib/context-builder";
 import { supabase } from "@/lib/supabase";
 import { generateText, generateTextStream } from "@/lib/gemini";
 
-const SYSTEM_PROMPT = `あなたは家庭の育児アシスタントです。利用者は保護者（親）です。
+export const SYSTEM_PROMPT = `あなたは家庭の育児アシスタントです。利用者は保護者（親）です。
 ルール：
 1. 登録情報だけを根拠に答える。無い情報は「登録がありません」と短く返し、推測しない。
 2. 聞かれたことの答えだけを返す。前置き・質問の繰り返し・相づち・絵文字・余計な助言は禁止。

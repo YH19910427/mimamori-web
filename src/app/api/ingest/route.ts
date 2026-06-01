@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { generateText } from "@/lib/gemini";
+import { generateEmbedding } from "@/lib/embeddings";
 
 const EXTRACT_PROMPT = `この資料（保育園のおたより・献立、医療・健康の書類、写真など。スキャン画像の場合あり）を読み取り、以下のJSONだけを出力してください。説明やコードフェンスは不要です。
 
@@ -114,6 +115,21 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // 埋め込みベクトルを非同期で生成・保存（失敗しても ingest は成功扱い）
+    const embedText = [
+      (parsed.title as string) ?? "",
+      (parsed.summary as string) ?? "",
+      ((parsed.full_text as string) ?? "").slice(0, 7000),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    generateEmbedding(embedText, "RETRIEVAL_DOCUMENT")
+      .then((embedding) =>
+        supabase.from("documents").update({ embedding }).eq("id", data.id)
+      )
+      .catch((e) => console.warn("embedding generation failed:", e));
+
     return NextResponse.json(
       { id: data.id, title: data.title, category: data.category },
       { status: 201 }

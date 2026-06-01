@@ -1,5 +1,34 @@
 import { supabase, ChildProfile, DailyRecord, KnowledgeDocument } from "./supabase";
-import { selectDocuments, type DocLike } from "./relevance";
+import { selectDocuments, rankHybrid, type DocLike, type VectorDoc } from "./relevance";
+import { generateEmbedding } from "./embeddings";
+
+async function selectDocumentsWithFallback(question: string, allDocs: DocLike[]) {
+  if (question.trim()) {
+    try {
+      const queryEmbedding = await generateEmbedding(question, "RETRIEVAL_QUERY");
+      const { data: vectorResults, error } = await supabase.rpc("match_documents", {
+        query_embedding: queryEmbedding,
+        match_count: 20,
+        match_threshold: 0.3,
+      });
+      if (!error && vectorResults && (vectorResults as VectorDoc[]).length > 0) {
+        const vectorDocs = vectorResults as VectorDoc[];
+        const { full, brief: vectorBrief } = rankHybrid(question, vectorDocs);
+        // brief = vector candidates not in full + all docs not returned by vector search
+        const fullIds = new Set(full.map((d) => d.id));
+        const vectorIds = new Set(vectorDocs.map((d) => d.id));
+        const brief = [
+          ...vectorBrief,
+          ...allDocs.filter((d) => !vectorIds.has(d.id)),
+        ];
+        return { full, brief };
+      }
+    } catch {
+      // fall through to bigram
+    }
+  }
+  return selectDocuments(question, allDocs);
+}
 
 export async function buildContext(question: string): Promise<string> {
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
@@ -10,7 +39,7 @@ export async function buildContext(question: string): Promise<string> {
     supabase.from("child_profile").select("*").limit(1),
     supabase
       .from("documents")
-      .select("*")
+      .select("id, title, category, summary, content, source_date, tags, key_facts, created_at")
       .order("source_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     supabase
@@ -47,10 +76,8 @@ export async function buildContext(question: string): Promise<string> {
   }
 
   if (documents.length > 0) {
-    const { full, brief } = selectDocuments(
-      question,
-      documents as unknown as DocLike[]
-    );
+    const allDocs = documents as unknown as DocLike[];
+    const { full, brief } = await selectDocumentsWithFallback(question, allDocs);
     const docParts = ["## 登録ドキュメント"];
     for (const doc of full) {
       const dateLabel = doc.source_date ? `（対象: ${doc.source_date}）` : "";

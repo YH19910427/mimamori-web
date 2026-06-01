@@ -1,3 +1,7 @@
+export interface VectorDoc extends DocLike {
+  similarity: number;
+}
+
 export interface DocLike {
   id: string;
   title: string;
@@ -46,6 +50,29 @@ function scoreDoc(tokens: string[], d: DocLike): number {
 
 function byDateDesc(a: DocLike, b: DocLike): number {
   return (b.source_date ?? b.created_at).localeCompare(a.source_date ?? a.created_at);
+}
+
+/**
+ * ベクトル検索結果（similarity付き）にbigramを組み合わせてリランキングする。
+ * score = vectorSim * 0.7 + bigramNorm * 0.3
+ */
+export function rankHybrid(
+  question: string,
+  vectorDocs: VectorDoc[],
+  k = 3
+): Selection {
+  const tokens = tokenize(question);
+  const bigramRaw = vectorDocs.map((d) => scoreDoc(tokens, d));
+  const maxBigram = Math.max(...bigramRaw, 1);
+  const hybrid = vectorDocs.map((d, i) => ({
+    d,
+    score: d.similarity * 0.7 + (bigramRaw[i] / maxBigram) * 0.3,
+  }));
+  hybrid.sort((a, b) => b.score - a.score);
+  const fullSet = hybrid.slice(0, k).map((x) => x.d);
+  const fullIds = new Set(fullSet.map((d) => d.id));
+  const brief = vectorDocs.filter((d) => !fullIds.has(d.id));
+  return { full: fullSet, brief };
 }
 
 /**
