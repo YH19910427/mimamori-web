@@ -8,15 +8,15 @@ export async function generateEmbedding(
   taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY"
 ): Promise<number[]> {
   const model = genai.getGenerativeModel({ model: "gemini-embedding-001" });
-  // outputDimensionality is a valid runtime param but absent from SDK 0.24.1 types
-  // @ts-expect-error
-  const result = await model.embedContent({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const opts: any = {
     content: { parts: [{ text: text.slice(0, MAX_CHARS) }], role: "user" },
     taskType:
       taskType === "RETRIEVAL_DOCUMENT"
         ? TaskType.RETRIEVAL_DOCUMENT
         : TaskType.RETRIEVAL_QUERY,
     outputDimensionality: 768,
-  });
+  };
+  const result = await model.embedContent(opts);
   return result.embedding.values;
 }

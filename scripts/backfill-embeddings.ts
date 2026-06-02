@@ -19,12 +19,13 @@ const RATE_LIMIT_MS = 200; // 5 req/s
 
 async function generateEmbedding(text: string): Promise<number[]> {
   const model = genai.getGenerativeModel({ model: "gemini-embedding-001" });
-  // @ts-expect-error outputDimensionality valid at runtime but absent from SDK 0.24.1 types
-  const result = await model.embedContent({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const opts: any = {
     content: { parts: [{ text: text.slice(0, 8000) }], role: "user" },
     taskType: TaskType.RETRIEVAL_DOCUMENT,
     outputDimensionality: 768,
-  });
+  };
+  const result = await model.embedContent(opts);
   return result.embedding.values;
 }
 
