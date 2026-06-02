@@ -22,7 +22,7 @@ RETURNS TABLE (
   summary      TEXT,
   content      TEXT,
   source_date  TEXT,
-  tags         TEXT[],
+  tags         JSONB,
   key_facts    JSONB,
   created_at   TIMESTAMPTZ,
   similarity   FLOAT

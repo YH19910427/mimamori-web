@@ -18,11 +18,11 @@ const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const RATE_LIMIT_MS = 200; // 5 req/s
 
 async function generateEmbedding(text: string): Promise<number[]> {
-  const model = genai.getGenerativeModel({ model: "gemini-embedding-001" });
+  // text-embedding-004 returns 768 dims by default
+  const model = genai.getGenerativeModel({ model: "text-embedding-004" });
   const result = await model.embedContent({
     content: { parts: [{ text: text.slice(0, 8000) }], role: "user" },
     taskType: TaskType.RETRIEVAL_DOCUMENT,
-    outputDimensionality: 768,
   });
   return result.embedding.values;
 }
